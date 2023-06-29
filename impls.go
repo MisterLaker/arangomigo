@@ -95,6 +95,10 @@ func PerformMigrations(ctx context.Context, c Config, ms []Migration) error {
 // Entry point in actually executing the migrations
 func perform(ctx context.Context, c Config, pm []PairedMigrations) error {
 	cl, err := client(c)
+	if e(err) {
+		return err
+	}
+
 	db, err := loadDb(ctx, c, cl, &pm, c.Extras)
 	if e(err) {
 		return err

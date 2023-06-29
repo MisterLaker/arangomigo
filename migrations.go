@@ -1,17 +1,18 @@
 package arangomigo
 
 import (
+	"bytes"
 	"crypto/md5"
 	"encoding/hex"
 	"errors"
 	"fmt"
-	"io/ioutil"
+	"io"
+	"os"
 	"path/filepath"
 	"regexp"
 	"sort"
 	"strings"
 
-	//driver "github.com/arangodb/go-driver" // This pisses me off. Why expose it?
 	driver "github.com/arangodb/go-driver"
 	"gopkg.in/yaml.v2"
 )
@@ -44,19 +45,6 @@ const (
 	WarnMode
 	SilentMode
 )
-
-// Declares the various patterns for mapping the types.
-var collection = regexp.MustCompile(`^type:\scollection`)
-var database = regexp.MustCompile(`^type:\sdatabase`)
-var graph = regexp.MustCompile(`^type:\sgraph`)
-var aql = regexp.MustCompile(`^type:\saql`)
-var fulltextidx = regexp.MustCompile(`^type:\sfulltextindex`)
-var geoidx = regexp.MustCompile(`^type:\sgeoindex`)
-var hashidx = regexp.MustCompile(`^type:\shashindex`)
-var persistentidx = regexp.MustCompile(`^type:\spersistentindex`)
-var ttlidx = regexp.MustCompile(`^type:\sttlindex`)
-var skipidx = regexp.MustCompile(`^type:\sskiplistindex`)
-var view = regexp.MustCompile(`^type:\sview`)
 
 // User the data used to update a user account
 type User struct {
@@ -387,34 +375,36 @@ func nearlyLexical(s []string) func(i, j int) bool {
 // Loads a set of migrations from a given directory.
 func loadFrom(path string) ([]Migration, error) {
 	parentDir := filepath.Join(path, "*.migration")
-	migrations, err := filepath.Glob(parentDir)
-
-	// This will destroy the whole process.
+	files, err := filepath.Glob(parentDir)
 	if err != nil {
 		return nil, err
 	}
 
 	// Attempts to sort by pseudo lexical means.
-	sort.Slice(migrations, nearlyLexical(migrations))
+	sort.Slice(files, nearlyLexical(files))
 
-	var answer []Migration
-	for _, migration := range migrations {
-		fmt.Printf("file name: %s\n", migration)
-		as, err := toStruct(migration)
+	var migrations []Migration
+
+	for _, f := range files {
+		fmt.Printf("file name: %s\n", f)
+
+		items, err := parseFile(f)
 		if err != nil {
-			return answer, err
+			return nil, err
 		}
-		fmt.Printf("The migration is %+v\n", as)
-		answer = append(answer, as)
+
+		fmt.Printf("The migrations: %+v\n", items)
+
+		migrations = append(migrations, items...)
 	}
 
-	return answer, nil
+	return migrations, nil
 }
 
 // Opens the path into a byte slice.
 // Returns the bytes, the file's checksum, and an error.
 func open(childPath string) ([]byte, string, error) {
-	bytes, err := ioutil.ReadFile(childPath)
+	bytes, err := os.ReadFile(childPath)
 	if err != nil {
 		return nil, "", err
 	}
@@ -423,55 +413,149 @@ func open(childPath string) ([]byte, string, error) {
 	return bytes, hex.EncodeToString(chk[:]), nil
 }
 
-// Reads the migration contents to pick the proper type.
-func pickT(contents []byte) (Migration, error) {
-	s := string(contents)
-	switch {
-	case collection.MatchString(s):
-		return new(Collection), nil
-	case database.MatchString(s):
-		return new(Database), nil
-	case graph.MatchString(s):
-		return new(Graph), nil
-	case aql.MatchString(s):
-		return new(AQL), nil
-	case fulltextidx.MatchString(s):
-		return new(FullTextIndex), nil
-	case geoidx.MatchString(s):
-		return new(GeoIndex), nil
-	case hashidx.MatchString(s):
-		return new(HashIndex), nil
-	case persistentidx.MatchString(s):
-		return new(PersistentIndex), nil
-	case ttlidx.MatchString(s):
-		return new(TTLIndex), nil
-	case skipidx.MatchString(s):
-		return new(SkiplistIndex), nil
-	case view.MatchString(s):
-		return new(SearchView), nil
-	default:
-		return nil, errors.New("Can't determine YAML type")
+func parseFile(path string) ([]Migration, error) {
+	b, checksum, err := open(path)
+	if err != nil {
+		return nil, err
 	}
+
+	dec := yaml.NewDecoder(bytes.NewReader(b))
+
+	var migrations []Migration
+
+	for {
+		var op opParser
+
+		if err := dec.Decode(&op); err != nil {
+			if !errors.Is(err, io.EOF) {
+				return nil, err
+			}
+
+			break
+		}
+
+		op.M.SetFileName(filepath.Base(path))
+		op.M.SetCheckSum(checksum)
+
+		migrations = append(migrations, op.M)
+	}
+
+	return migrations, nil
 }
 
-/*
-Converts a path to the proper underlying types specified in
-the childPath.
-*/
-func toStruct(childPath string) (Migration, error) {
-	contents, checksum, err := open(childPath)
+type opParser struct {
+	M Migration
+}
 
-	t, err := pickT(contents)
-	if err != nil {
-		return nil, err
+func (p *opParser) UnmarshalYAML(unmarshal func(any) error) error {
+	var op Operation
+
+	if err := unmarshal(&op); err != nil {
+		return err
 	}
 
-	err = yaml.UnmarshalStrict(contents, t)
-	if err != nil {
-		return nil, err
+	switch strings.ToLower(op.Type) {
+	case "database":
+		var item Database
+
+		if err := unmarshal(&item); err != nil {
+			return err
+		}
+
+		p.M = &item
+
+	case "collection":
+		var item Collection
+
+		if err := unmarshal(&item); err != nil {
+			return err
+		}
+
+		p.M = &item
+
+	case "graph":
+		var item Graph
+
+		if err := unmarshal(&item); err != nil {
+			return err
+		}
+
+		p.M = &item
+
+	case "aql":
+		var item AQL
+
+		if err := unmarshal(&item); err != nil {
+			return err
+		}
+
+		p.M = &item
+
+	case "fulltextindex":
+		var item FullTextIndex
+
+		if err := unmarshal(&item); err != nil {
+			return err
+		}
+
+		p.M = &item
+
+	case "geoindex":
+		var item GeoIndex
+
+		if err := unmarshal(&item); err != nil {
+			return err
+		}
+
+		p.M = &item
+	case "hashindex":
+		var item HashIndex
+
+		if err := unmarshal(&item); err != nil {
+			return err
+		}
+
+		p.M = &item
+
+	case "persistentindex":
+		var item PersistentIndex
+
+		if err := unmarshal(&item); err != nil {
+			return err
+		}
+
+		p.M = &item
+
+	case "ttlindex":
+		var item TTLIndex
+
+		if err := unmarshal(&item); err != nil {
+			return err
+		}
+
+		p.M = &item
+
+	case "skiplistindex":
+		var item SkiplistIndex
+
+		if err := unmarshal(&item); err != nil {
+			return err
+		}
+
+		p.M = &item
+
+	case "view":
+		var item SearchView
+
+		if err := unmarshal(&item); err != nil {
+			return err
+		}
+
+		p.M = &item
+
+	default:
+		return fmt.Errorf("unsupported migration type: %s", op.Type)
 	}
 
-	t.SetFileName(filepath.Base(childPath))
-	t.SetCheckSum(checksum)
-	return t, nil
+	return nil
 }
