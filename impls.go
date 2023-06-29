@@ -23,7 +23,7 @@ type Migration interface {
 	SetFileName(name string)
 	CheckSum() string
 	SetCheckSum(sum string)
-	SetStrict(s bool)
+	SetExecutionMode(m ExecutionMode)
 }
 
 // FileName gets the filename of the migrations configuration.
@@ -46,8 +46,8 @@ func (op *Operation) SetCheckSum(sum string) {
 	op.checksum = sum
 }
 
-func (op *Operation) SetStrict(b bool) {
-	op.Strict = b
+func (op *Operation) SetExecutionMode(m ExecutionMode) {
+	op.ExecutionMode = m
 }
 
 // End Common operation implementations
@@ -61,8 +61,8 @@ func PerformMigrations(ctx context.Context, c Config, ms []Migration) error {
 		chk := md5.Sum([]byte(name))
 		migration.SetCheckSum(hex.EncodeToString(chk[:]))
 
-		if c.Strict {
-			migration.SetStrict(c.Strict)
+		if c.ExecutionMode != 0 {
+			migration.SetExecutionMode(c.ExecutionMode)
 		}
 
 		pms = append(pms, PairedMigrations{change: migration, undo: nil})
@@ -209,6 +209,21 @@ func e(err error) bool {
 	return err != nil
 }
 
+func handleOperationError(err error, mode ExecutionMode) error {
+	switch mode {
+	case StrictMode:
+		return err
+	case WarnMode:
+		fmt.Printf("Warn: %v\n", err)
+
+		return nil
+	case SilentMode:
+		return nil
+	}
+
+	return nil
+}
+
 func (d *Database) Migrate(ctx context.Context, db driver.Database, extras map[string]interface{}) error {
 	var oerr error
 	switch d.Action {
@@ -289,12 +304,7 @@ func (cl Collection) Migrate(ctx context.Context, db driver.Database, _ map[stri
 
 		_, err := db.CreateCollection(ctx, cl.Name, &options)
 		if e(err) {
-			err = errors.Wrapf(err, "Couldn't create collection '%s'", cl.Name)
-			if cl.Strict {
-				return err
-			}
-
-			fmt.Printf("Ignoring: %v", err)
+			return handleOperationError(errors.Wrapf(err, "Couldn't create collection '%s'", cl.Name), cl.ExecutionMode)
 		}
 	case DELETE:
 		col, err := db.Collection(ctx, cl.Name)
@@ -360,14 +370,9 @@ func (g Graph) Migrate(ctx context.Context, db driver.Database, _ map[string]int
 
 		_, err := db.CreateGraphV2(ctx, g.Name, &options)
 		if e(err) {
-			err = errors.Wrapf(err, "Couldn't create graph '%s'", g.Name)
-
-			if g.Strict {
-				return err
-			}
-
-			fmt.Printf("Ignoring: %v", err)
+			return handleOperationError(errors.Wrapf(err, "Couldn't create graph '%s'", g.Name), g.ExecutionMode)
 		}
+
 		return nil
 	case DELETE:
 		aG, err := db.Graph(ctx, g.Name)
@@ -486,11 +491,7 @@ func (i FullTextIndex) Migrate(ctx context.Context, db driver.Database, _ map[st
 				i.Fields, i.Collection,
 			)
 
-			if i.Strict {
-				return err
-			}
-
-			fmt.Printf("Ignoring: %v", err)
+			return handleOperationError(err, i.ExecutionMode)
 		}
 
 		return nil
@@ -603,11 +604,7 @@ func (i PersistentIndex) Migrate(ctx context.Context, db driver.Database, _ map[
 				i.Fields, i.Collection,
 			)
 
-			if i.Strict {
-				return err
-			}
-
-			fmt.Printf("Ignoring: %v", err)
+			return handleOperationError(err, i.ExecutionMode)
 		}
 
 		return nil

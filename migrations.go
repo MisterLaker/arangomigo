@@ -18,12 +18,12 @@ import (
 
 // Operation the common elements for all migrations.
 type Operation struct {
-	checksum string
-	fileName string
-	Type     string
-	Name     string
-	Action   Action
-	Strict   bool
+	checksum      string
+	fileName      string
+	Type          string
+	Name          string
+	Action        Action
+	ExecutionMode ExecutionMode
 }
 
 // Action enumerated values for valid operation actions.
@@ -35,6 +35,14 @@ const (
 	DELETE Action = "delete"
 	MODIFY Action = "modify"
 	RUN    Action = "run"
+)
+
+type ExecutionMode int
+
+const (
+	StrictMode ExecutionMode = iota
+	WarnMode
+	SilentMode
 )
 
 // Declares the various patterns for mapping the types.
