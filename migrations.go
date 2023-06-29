@@ -75,6 +75,10 @@ type Database struct {
 	db driver.Database
 }
 
+func (o Database) GetType() string {
+	return "database"
+}
+
 // Collection the YAML struct for configuring a collection migration.
 type Collection struct {
 	Operation `yaml:",inline"`
@@ -89,6 +93,10 @@ type Collection struct {
 	CollectionType string
 }
 
+func (o Collection) GetType() string {
+	return "collection"
+}
+
 // FullTextIndex defines how to build a full text index on a field
 type FullTextIndex struct {
 	Operation    `yaml:",inline"`
@@ -98,6 +106,10 @@ type FullTextIndex struct {
 	InBackground bool
 }
 
+func (o FullTextIndex) GetType() string {
+	return "fulltextindex"
+}
+
 // GeoIndex creates a GeoIndex within the specified collection.
 type GeoIndex struct {
 	Operation    `yaml:",inline"`
@@ -105,6 +117,10 @@ type GeoIndex struct {
 	Collection   string
 	GeoJSON      bool
 	InBackground bool
+}
+
+func (o GeoIndex) GetType() string {
+	return "geoindex"
 }
 
 // HashIndex creates a hash index on the fields within the specified Collection.
@@ -118,6 +134,10 @@ type HashIndex struct {
 	InBackground  bool
 }
 
+func (o HashIndex) GetType() string {
+	return "hashindex"
+}
+
 // PersistentIndex creates a persistent index on the collections' fields.
 type PersistentIndex struct {
 	Operation    `yaml:",inline"`
@@ -128,6 +148,10 @@ type PersistentIndex struct {
 	InBackground bool
 }
 
+func (o PersistentIndex) GetType() string {
+	return "persistentindex"
+}
+
 // TTLIndex creates a TTL index on the collections' fields.
 type TTLIndex struct {
 	Operation    `yaml:",inline"`
@@ -135,6 +159,10 @@ type TTLIndex struct {
 	Collection   string
 	ExpireAfter  int
 	InBackground bool
+}
+
+func (o TTLIndex) GetType() string {
+	return "ttlindex"
 }
 
 // SkiplistIndex creates a sliplist index on the collections' fields.
@@ -148,11 +176,19 @@ type SkiplistIndex struct {
 	InBackground  bool
 }
 
+func (o SkiplistIndex) GetType() string {
+	return "skiplistindex"
+}
+
 // AQL allows arbitrary AQL execution as part of the migration.
 type AQL struct {
 	Operation `yaml:",inline"`
 	Query     string
 	BindVars  map[string]interface{}
+}
+
+func (o AQL) GetType() string {
+	return "aql"
 }
 
 // EdgeDefinition contains all information needed to define
@@ -186,6 +222,10 @@ type Graph struct {
 	RemoveVertices []string
 }
 
+func (o Graph) GetType() string {
+	return "graph"
+}
+
 // PairedMigrations Defines the primary change and an undo operation if provided.
 // Presently undo is not a supported feature. After reading Flyway's
 // history of the feature, it might  never be supported
@@ -213,6 +253,10 @@ type SearchView struct {
 	// Links contains the properties for how individual collections
 	// are indexed in thie view.
 	Links []SearchElementProperties `yaml:"links,omitempty"`
+}
+
+func (o SearchView) GetType() string {
+	return "searchview"
 }
 
 // ConsolidationPolicy holds threshold values specifying when to

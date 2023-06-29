@@ -5,6 +5,7 @@ import (
 	"crypto/md5"
 	"encoding/hex"
 	"fmt"
+	"strings"
 
 	"github.com/pkg/errors"
 
@@ -24,11 +25,26 @@ type Migration interface {
 	CheckSum() string
 	SetCheckSum(sum string)
 	SetExecutionMode(m ExecutionMode)
+	GetType() string
 }
 
 // FileName gets the filename of the migrations configuration.
 func (op *Operation) FileName() string {
-	return op.fileName
+	if op.fileName != "" {
+		return op.fileName
+	}
+
+	var name []string
+
+	if op.Action != "" {
+		name = append(name, string(op.Action))
+	}
+
+	if op.Name != "" {
+		name = append(name, op.Name)
+	}
+
+	return strings.Join(name, ".")
 }
 
 // SetFileName updates the filename of the migration
@@ -56,7 +72,13 @@ func PerformMigrations(ctx context.Context, c Config, ms []Migration) error {
 	var pms []PairedMigrations
 
 	for i, migration := range ms {
-		name := fmt.Sprintf("%d.migration", i)
+		f := migration.FileName()
+		if f == "" {
+			f = fmt.Sprintf("%d", i)
+		}
+		// type.action.name
+		name := fmt.Sprintf("%s.%s", migration.GetType(), f)
+
 		migration.SetFileName(name)
 		chk := md5.Sum([]byte(name))
 		migration.SetCheckSum(hex.EncodeToString(chk[:]))
