@@ -5,7 +5,6 @@ import (
 	"crypto/md5"
 	"encoding/hex"
 	"fmt"
-	"strings"
 
 	"github.com/pkg/errors"
 
@@ -26,25 +25,12 @@ type Migration interface {
 	SetCheckSum(sum string)
 	SetExecutionMode(m ExecutionMode)
 	GetType() string
+	GetKey() string
 }
 
 // FileName gets the filename of the migrations configuration.
 func (op *Operation) FileName() string {
-	if op.fileName != "" {
-		return op.fileName
-	}
-
-	var name []string
-
-	if op.Action != "" {
-		name = append(name, string(op.Action))
-	}
-
-	if op.Name != "" {
-		name = append(name, op.Name)
-	}
-
-	return strings.Join(name, ".")
+	return op.fileName
 }
 
 // SetFileName updates the filename of the migration
@@ -108,9 +94,11 @@ func perform(ctx context.Context, c Config, pm []PairedMigrations) error {
 }
 
 // Processed marker. Declared here since it's impl related.
-type migration struct {
-	Key      string `json:"_key"`
-	Checksum string
+type migrationLog struct {
+	Key       string `json:"_key"`
+	Operation string
+	File      string
+	Checksum  string
 }
 
 func migrateNow(
@@ -130,8 +118,18 @@ func migrateNow(
 		m := pm.change
 		u := pm.undo
 
+		opKey := m.GetKey()
+		fileName := m.FileName()
+
+		mlog := &migrationLog{
+			Key:       fmt.Sprintf("%s:%s", fileName, opKey),
+			Operation: opKey,
+			File:      fileName,
+			Checksum:  m.CheckSum(),
+		}
+
 		// Since migrations are stored by their file names, just see if it exists
-		migRan, err := mcol.DocumentExists(ctx, m.FileName())
+		migRan, err := mcol.DocumentExists(ctx, mlog.Key)
 		if e(err) {
 			return err
 		}
@@ -140,7 +138,7 @@ func migrateNow(
 			err := m.Migrate(ctx, db, extras)
 			if !e(err) {
 				if temp, ok := m.(*Database); !ok || temp.Action == MODIFY {
-					_, err := mcol.CreateDocument(ctx, &migration{Key: m.FileName(), Checksum: m.CheckSum()})
+					_, err := mcol.CreateDocument(ctx, mlog)
 					if e(err) {
 						return err
 					}

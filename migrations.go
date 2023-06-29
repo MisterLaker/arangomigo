@@ -27,8 +27,24 @@ type Operation struct {
 	ExecutionMode ExecutionMode
 }
 
+func (o Operation) GetKey() string {
+	key := []string{
+		o.Type,
+	}
+
+	if o.Action != "" {
+		key = append(key, string(o.Action))
+	}
+
+	if o.Name != "" {
+		key = append(key, o.Name)
+	}
+
+	return strings.Join(key, ".")
+}
+
 func (o Operation) String() string {
-	return fmt.Sprintf("%s.%v.%s", o.Type, o.Action, o.Name)
+	return o.GetKey()
 }
 
 // Action enumerated values for valid operation actions.
@@ -297,8 +313,9 @@ var validVersion = regexp.MustCompile(`^\d*(\.\d*)*?$`)
 
 // Pairs migrations together.
 // Returns an error if unable to find migrations.
-func migrations(paths []string) ([]PairedMigrations, error) {
+func loadMigrations(paths []string) ([]PairedMigrations, error) {
 	var pms []PairedMigrations
+
 	for _, path := range paths {
 		ms, err := loadFrom(path)
 		if err != nil {
