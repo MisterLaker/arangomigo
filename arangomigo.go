@@ -17,7 +17,7 @@ func TriggerMigration(configAt string) {
 		log.Fatal(err)
 	}
 
-	if err := migrate(*config); err != nil {
+	if err := Migrate(*config); err != nil {
 		log.Fatal("Could not perform migration\n", err)
 	}
 	fmt.Println("Successfully completed migration")
@@ -26,7 +26,7 @@ func TriggerMigration(configAt string) {
 // TODO remember that having replayable migrations need to be possible too.
 // Have branch those into running at the end.
 
-func migrate(c Config) error {
+func Migrate(c Config) error {
 	ctx := context.Background()
 
 	pm, err := migrations(c.MigrationsPath)
