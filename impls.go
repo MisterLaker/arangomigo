@@ -23,6 +23,7 @@ type Migration interface {
 	SetFileName(name string)
 	CheckSum() string
 	SetCheckSum(sum string)
+	SetStrict(s bool)
 }
 
 // FileName gets the filename of the migrations configuration.
@@ -45,15 +46,25 @@ func (op *Operation) SetCheckSum(sum string) {
 	op.checksum = sum
 }
 
+func (op *Operation) SetStrict(b bool) {
+	op.Strict = b
+}
+
 // End Common operation implementations
 
 func PerformMigrations(ctx context.Context, c Config, ms []Migration) error {
 	var pms []PairedMigrations
+
 	for i, migration := range ms {
 		name := fmt.Sprintf("%d.migration", i)
 		migration.SetFileName(name)
 		chk := md5.Sum([]byte(name))
 		migration.SetCheckSum(hex.EncodeToString(chk[:]))
+
+		if c.Strict {
+			migration.SetStrict(c.Strict)
+		}
+
 		pms = append(pms, PairedMigrations{change: migration, undo: nil})
 	}
 	return perform(ctx, c, pms)
@@ -278,7 +289,12 @@ func (cl Collection) Migrate(ctx context.Context, db driver.Database, _ map[stri
 
 		_, err := db.CreateCollection(ctx, cl.Name, &options)
 		if e(err) {
-			return err
+			err = errors.Wrapf(err, "Couldn't create collection '%s'", cl.Name)
+			if cl.Strict {
+				return err
+			}
+
+			fmt.Printf("Ignoring: %v", err)
 		}
 	case DELETE:
 		col, err := db.Collection(ctx, cl.Name)
@@ -343,7 +359,16 @@ func (g Graph) Migrate(ctx context.Context, db driver.Database, _ map[string]int
 		options.OrphanVertexCollections = g.OrphanVertices
 
 		_, err := db.CreateGraphV2(ctx, g.Name, &options)
-		return err
+		if e(err) {
+			err = errors.Wrapf(err, "Couldn't create graph '%s'", g.Name)
+
+			if g.Strict {
+				return err
+			}
+
+			fmt.Printf("Ignoring: %v", err)
+		}
+		return nil
 	case DELETE:
 		aG, err := db.Graph(ctx, g.Name)
 		if e(err) {
@@ -454,11 +479,21 @@ func (i FullTextIndex) Migrate(ctx context.Context, db driver.Database, _ map[st
 		options.InBackground = i.InBackground
 		_, _, err = cl.EnsureFullTextIndex(ctx, i.Fields, &options)
 
-		return errors.Wrapf(
-			err,
-			"Could not create full text index with fields '%s' in collection %s",
-			i.Fields, i.Collection,
-		)
+		if e(err) {
+			err = errors.Wrapf(
+				err,
+				"Could not create full text index with fields '%s' in collection %s",
+				i.Fields, i.Collection,
+			)
+
+			if i.Strict {
+				return err
+			}
+
+			fmt.Printf("Ignoring: %v", err)
+		}
+
+		return nil
 	default:
 		return errors.Errorf("Unknown action %s", i.Action)
 	}
@@ -561,11 +596,21 @@ func (i PersistentIndex) Migrate(ctx context.Context, db driver.Database, _ map[
 		options.InBackground = i.InBackground
 		_, _, err = cl.EnsurePersistentIndex(ctx, i.Fields, &options)
 
-		return errors.Wrapf(
-			err,
-			"Could not create persistent index with fields '%s' in collection %s",
-			i.Fields, i.Collection,
-		)
+		if e(err) {
+			err = errors.Wrapf(
+				err,
+				"Could not create persistent index with fields '%s' in collection %s",
+				i.Fields, i.Collection,
+			)
+
+			if i.Strict {
+				return err
+			}
+
+			fmt.Printf("Ignoring: %v", err)
+		}
+
+		return nil
 	default:
 		return errors.Errorf("Unknown action %s", i.Action)
 	}

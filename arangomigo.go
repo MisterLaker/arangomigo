@@ -86,6 +86,7 @@ type Config struct {
 	Password       string
 	MigrationsPath StringArray
 	Db             string
+	Strict         bool
 	// Extras allows the user to pass in replaced variables
 	Extras map[string]interface{}
 }

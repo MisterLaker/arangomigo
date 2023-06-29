@@ -23,6 +23,7 @@ type Operation struct {
 	Type     string
 	Name     string
 	Action   Action
+	Strict   bool
 }
 
 // Action enumerated values for valid operation actions.

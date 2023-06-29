@@ -83,7 +83,7 @@ func buildViewProperties(searchView SearchView) driver.ArangoSearchViewPropertie
 }
 
 func buildSortField(field SortField) driver.ArangoSearchPrimarySortEntry {
-	sortEntry := driver.ArangoSearchPrimarySortEntry{Field:field.Field}
+	sortEntry := driver.ArangoSearchPrimarySortEntry{Field: field.Field}
 	if field.Ascending != nil {
 		direction := driver.ArangoSearchSortDirectionDesc
 		if *field.Ascending {
@@ -169,7 +169,7 @@ func getFloat(unk interface{}) float64 {
 	fv := v.Convert(floatType)
 	return fv.Float()
 }
-func getInt(unk interface{}) int64  {
+func getInt(unk interface{}) int64 {
 	v := reflect.ValueOf(unk)
 	v = reflect.Indirect(v)
 	fv := v.Convert(intType)
