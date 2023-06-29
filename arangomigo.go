@@ -26,7 +26,7 @@ func TriggerMigration(configAt string) {
 // TODO remember that having replayable migrations need to be possible too.
 // Have branch those into running at the end.
 func Migrate(ctx context.Context, c Config) error {
-	pm, err := loadMigrations(c.MigrationsPath)
+	pm, err := loadMigrations(c)
 	if e(err) {
 		return err
 	}

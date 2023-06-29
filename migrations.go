@@ -313,10 +313,10 @@ var validVersion = regexp.MustCompile(`^\d*(\.\d*)*?$`)
 
 // Pairs migrations together.
 // Returns an error if unable to find migrations.
-func loadMigrations(paths []string) ([]PairedMigrations, error) {
+func loadMigrations(conf Config) ([]PairedMigrations, error) {
 	var pms []PairedMigrations
 
-	for _, path := range paths {
+	for _, path := range conf.MigrationsPath {
 		ms, err := loadFrom(path)
 		if err != nil {
 			return nil, err
@@ -325,6 +325,10 @@ func loadMigrations(paths []string) ([]PairedMigrations, error) {
 			return nil, errors.New("Could not find migrations at path '" + path + "'")
 		}
 		for _, m := range ms {
+			if conf.ExecutionMode != 0 {
+				m.SetExecutionMode(conf.ExecutionMode)
+			}
+
 			pm := PairedMigrations{change: m, undo: nil}
 			pms = append(pms, pm)
 		}
