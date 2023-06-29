@@ -27,6 +27,10 @@ type Operation struct {
 	ExecutionMode ExecutionMode
 }
 
+func (o Operation) String() string {
+	return fmt.Sprintf("%s.%v.%s", o.Type, o.Action, o.Name)
+}
+
 // Action enumerated values for valid operation actions.
 type Action string
 
