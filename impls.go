@@ -132,7 +132,7 @@ func migrateNow(
 	pms []PairedMigrations,
 	extras map[string]interface{},
 ) error {
-	fmt.Println("Starting migration now")
+	fmt.Println("Applying migrations:")
 
 	mcol, err := db.Collection(ctx, migCol)
 	if e(err) {
@@ -160,6 +160,8 @@ func migrateNow(
 		}
 
 		if !migRan {
+			fmt.Printf("\t- %s:%s\n", fileName, opKey)
+
 			err := m.Migrate(ctx, db, extras)
 			if !e(err) {
 				if temp, ok := m.(*Database); !ok || temp.Action == MODIFY {
