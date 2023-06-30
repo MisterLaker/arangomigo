@@ -24,6 +24,7 @@ type Operation struct {
 	Type          string
 	Name          string
 	Action        Action
+	Collection    string
 	ExecutionMode ExecutionMode
 }
 
@@ -89,7 +90,6 @@ func (o Collection) GetType() string {
 type FullTextIndex struct {
 	Operation    `yaml:",inline"`
 	Fields       []string
-	Collection   string
 	MinLength    int
 	InBackground bool
 }
@@ -98,15 +98,10 @@ func (i *FullTextIndex) GetType() string {
 	return "fulltextindex"
 }
 
-func (i *FullTextIndex) GetKey() string {
-	return fmt.Sprintf("%s.%s", i.Collection, i.Operation.GetKey())
-}
-
 // GeoIndex creates a GeoIndex within the specified collection.
 type GeoIndex struct {
 	Operation    `yaml:",inline"`
 	Fields       []string
-	Collection   string
 	GeoJSON      bool
 	InBackground bool
 }
@@ -115,15 +110,10 @@ func (i *GeoIndex) GetType() string {
 	return "geoindex"
 }
 
-func (i *GeoIndex) GetKey() string {
-	return fmt.Sprintf("%s.%s", i.Collection, i.Operation.GetKey())
-}
-
 // HashIndex creates a hash index on the fields within the specified Collection.
 type HashIndex struct {
 	Operation     `yaml:",inline"`
 	Fields        []string
-	Collection    string
 	Unique        bool
 	Sparse        bool
 	NoDeduplicate bool
@@ -134,15 +124,10 @@ func (i *HashIndex) GetType() string {
 	return "hashindex"
 }
 
-func (i *HashIndex) GetKey() string {
-	return fmt.Sprintf("%s.%s", i.Collection, i.Operation.GetKey())
-}
-
 // PersistentIndex creates a persistent index on the collections' fields.
 type PersistentIndex struct {
 	Operation    `yaml:",inline"`
 	Fields       []string
-	Collection   string
 	Unique       bool
 	Sparse       bool
 	InBackground bool
@@ -152,15 +137,10 @@ func (i *PersistentIndex) GetType() string {
 	return "persistentindex"
 }
 
-func (i *PersistentIndex) GetKey() string {
-	return fmt.Sprintf("%s.%s", i.Collection, i.Operation.GetKey())
-}
-
 // TTLIndex creates a TTL index on the collections' fields.
 type TTLIndex struct {
 	Operation    `yaml:",inline"`
 	Field        string
-	Collection   string
 	ExpireAfter  int
 	InBackground bool
 }
@@ -169,15 +149,10 @@ func (i *TTLIndex) GetType() string {
 	return "ttlindex"
 }
 
-func (i *TTLIndex) GetKey() string {
-	return fmt.Sprintf("%s.%s", i.Collection, i.Operation.GetKey())
-}
-
 // SkiplistIndex creates a sliplist index on the collections' fields.
 type SkiplistIndex struct {
 	Operation     `yaml:",inline"`
 	Fields        []string
-	Collection    string
 	Unique        bool
 	Sparse        bool
 	NoDeduplicate bool
@@ -188,10 +163,6 @@ func (i *SkiplistIndex) GetType() string {
 	return "skiplistindex"
 }
 
-func (i *SkiplistIndex) GetKey() string {
-	return fmt.Sprintf("%s.%s", i.Collection, i.Operation.GetKey())
-}
-
 // AQL allows arbitrary AQL execution as part of the migration.
 type AQL struct {
 	Operation `yaml:",inline"`
@@ -199,7 +170,7 @@ type AQL struct {
 	BindVars  map[string]interface{}
 }
 
-func (i *AQL) GetType() string {
+func (o *AQL) GetType() string {
 	return "aql"
 }
 
@@ -234,7 +205,7 @@ type Graph struct {
 	RemoveVertices []string
 }
 
-func (o Graph) GetType() string {
+func (o *Graph) GetType() string {
 	return "graph"
 }
 
@@ -267,7 +238,7 @@ type SearchView struct {
 	Links []SearchElementProperties `yaml:"links,omitempty"`
 }
 
-func (o SearchView) GetType() string {
+func (o *SearchView) GetType() string {
 	return "searchview"
 }
 
@@ -321,6 +292,8 @@ func loadMigrations(conf Config) ([]PairedMigrations, error) {
 	var pms []PairedMigrations
 
 	for _, path := range conf.MigrationsPath {
+		fmt.Printf("load migrations from %s\n", path)
+
 		ms, err := loadFrom(path)
 		if err != nil {
 			return nil, err

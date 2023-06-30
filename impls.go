@@ -62,6 +62,10 @@ func (op *Operation) GetKey() string {
 		key = append(key, string(op.Action))
 	}
 
+	if op.Collection != "" {
+		key = append(key, op.Collection)
+	}
+
 	if op.Name != "" {
 		key = append(key, op.Name)
 	}
