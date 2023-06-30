@@ -6,6 +6,7 @@ import (
 	"encoding/hex"
 	"fmt"
 	"strings"
+	"time"
 
 	"github.com/pkg/errors"
 
@@ -120,10 +121,11 @@ func perform(ctx context.Context, c Config, pm []PairedMigrations) error {
 
 // Processed marker. Declared here since it's impl related.
 type migrationLog struct {
-	Key       string `json:"_key"`
-	Operation string
-	File      string
-	Checksum  string
+	Key       string    `json:"_key"`
+	Operation string    `json:"operation"`
+	File      string    `json:"file"`
+	Checksum  string    `json:"checksum"`
+	Ts        time.Time `json:"ts"`
 }
 
 func migrateNow(
@@ -139,6 +141,8 @@ func migrateNow(
 		return err
 	}
 
+	t := time.Now()
+
 	for _, pm := range pms {
 		m := pm.change
 		u := pm.undo
@@ -151,6 +155,7 @@ func migrateNow(
 			Operation: opKey,
 			File:      fileName,
 			Checksum:  m.CheckSum(),
+			Ts:        t,
 		}
 
 		// Since migrations are stored by their file names, just see if it exists

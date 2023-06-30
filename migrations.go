@@ -388,7 +388,7 @@ func loadFrom(path string) ([]Migration, error) {
 	var migrations []Migration
 
 	for _, f := range files {
-		fmt.Printf("file name: %s\n", f)
+		fmt.Printf("file: %s\n", f)
 
 		items, err := parseFile(f)
 		if err != nil {
