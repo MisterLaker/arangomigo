@@ -27,26 +27,6 @@ type Operation struct {
 	ExecutionMode ExecutionMode
 }
 
-func (o Operation) GetKey() string {
-	key := []string{
-		o.Type,
-	}
-
-	if o.Action != "" {
-		key = append(key, string(o.Action))
-	}
-
-	if o.Name != "" {
-		key = append(key, o.Name)
-	}
-
-	return strings.Join(key, ".")
-}
-
-func (o Operation) String() string {
-	return o.GetKey()
-}
-
 // Action enumerated values for valid operation actions.
 type Action string
 
@@ -114,8 +94,12 @@ type FullTextIndex struct {
 	InBackground bool
 }
 
-func (o FullTextIndex) GetType() string {
+func (i *FullTextIndex) GetType() string {
 	return "fulltextindex"
+}
+
+func (i *FullTextIndex) GetKey() string {
+	return fmt.Sprintf("%s.%s", i.Collection, i.Operation.GetKey())
 }
 
 // GeoIndex creates a GeoIndex within the specified collection.
@@ -127,8 +111,12 @@ type GeoIndex struct {
 	InBackground bool
 }
 
-func (o GeoIndex) GetType() string {
+func (i *GeoIndex) GetType() string {
 	return "geoindex"
+}
+
+func (i *GeoIndex) GetKey() string {
+	return fmt.Sprintf("%s.%s", i.Collection, i.Operation.GetKey())
 }
 
 // HashIndex creates a hash index on the fields within the specified Collection.
@@ -142,8 +130,12 @@ type HashIndex struct {
 	InBackground  bool
 }
 
-func (o HashIndex) GetType() string {
+func (i *HashIndex) GetType() string {
 	return "hashindex"
+}
+
+func (i *HashIndex) GetKey() string {
+	return fmt.Sprintf("%s.%s", i.Collection, i.Operation.GetKey())
 }
 
 // PersistentIndex creates a persistent index on the collections' fields.
@@ -156,8 +148,12 @@ type PersistentIndex struct {
 	InBackground bool
 }
 
-func (o PersistentIndex) GetType() string {
+func (i *PersistentIndex) GetType() string {
 	return "persistentindex"
+}
+
+func (i *PersistentIndex) GetKey() string {
+	return fmt.Sprintf("%s.%s", i.Collection, i.Operation.GetKey())
 }
 
 // TTLIndex creates a TTL index on the collections' fields.
@@ -169,8 +165,12 @@ type TTLIndex struct {
 	InBackground bool
 }
 
-func (o TTLIndex) GetType() string {
+func (i *TTLIndex) GetType() string {
 	return "ttlindex"
+}
+
+func (i *TTLIndex) GetKey() string {
+	return fmt.Sprintf("%s.%s", i.Collection, i.Operation.GetKey())
 }
 
 // SkiplistIndex creates a sliplist index on the collections' fields.
@@ -184,8 +184,12 @@ type SkiplistIndex struct {
 	InBackground  bool
 }
 
-func (o SkiplistIndex) GetType() string {
+func (i *SkiplistIndex) GetType() string {
 	return "skiplistindex"
+}
+
+func (i *SkiplistIndex) GetKey() string {
+	return fmt.Sprintf("%s.%s", i.Collection, i.Operation.GetKey())
 }
 
 // AQL allows arbitrary AQL execution as part of the migration.
@@ -195,7 +199,7 @@ type AQL struct {
 	BindVars  map[string]interface{}
 }
 
-func (o AQL) GetType() string {
+func (i *AQL) GetType() string {
 	return "aql"
 }
 

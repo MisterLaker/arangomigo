@@ -5,6 +5,7 @@ import (
 	"crypto/md5"
 	"encoding/hex"
 	"fmt"
+	"strings"
 
 	"github.com/pkg/errors"
 
@@ -50,6 +51,26 @@ func (op *Operation) SetCheckSum(sum string) {
 
 func (op *Operation) SetExecutionMode(m ExecutionMode) {
 	op.ExecutionMode = m
+}
+
+func (op *Operation) GetKey() string {
+	key := []string{
+		op.Type,
+	}
+
+	if op.Action != "" {
+		key = append(key, string(op.Action))
+	}
+
+	if op.Name != "" {
+		key = append(key, op.Name)
+	}
+
+	return strings.Join(key, ".")
+}
+
+func (op *Operation) String() string {
+	return op.GetKey()
 }
 
 // End Common operation implementations
