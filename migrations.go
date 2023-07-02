@@ -3,10 +3,12 @@ package arangomigo
 import (
 	"bytes"
 	"crypto/md5"
+	"embed"
 	"encoding/hex"
 	"errors"
 	"fmt"
 	"io"
+	"io/fs"
 	"os"
 	"path/filepath"
 	"regexp"
@@ -284,22 +286,39 @@ type SearchElementProperties struct {
 	TrackListPositions *bool `yaml:"trackListPositions,omitempty"`
 }
 
-var validVersion = regexp.MustCompile(`^\d*(\.\d*)*?$`)
+func Embeded(efs embed.FS, path string) Loader {
+	return func() (fs.FS, string, error) {
+		fmt.Printf("load embed migrations from %s\n", path)
+
+		return efs, fmt.Sprintf("%s/*.migration", path), nil
+	}
+}
+
+func Dir(path string) Loader {
+	return func() (fs.FS, string, error) {
+		fmt.Printf("load migrations from %s\n", path)
+
+		return os.DirFS(path), "*.migration", nil
+	}
+}
 
 // Pairs migrations together.
 // Returns an error if unable to find migrations.
 func loadMigrations(conf Config) ([]PairedMigrations, error) {
 	var pms []PairedMigrations
 
-	for _, path := range conf.MigrationsPath {
-		fmt.Printf("load migrations from %s\n", path)
+	for _, load := range conf.Loaders {
+		mfs, path, err := load()
+		if err != nil {
+			return nil, err
+		}
 
-		ms, err := loadFrom(path)
+		ms, err := loadFrom(mfs, path)
 		if err != nil {
 			return nil, err
 		}
 		if len(ms) == 0 {
-			return nil, errors.New("Could not find migrations at path '" + path + "'")
+			return nil, errors.New("Could not find migrations")
 		}
 		for _, m := range ms {
 			if conf.ExecutionMode != 0 {
@@ -318,6 +337,8 @@ func lpadToLength(s string, l int) string {
 	copy(dest[l-len(s):], []rune(s))
 	return string(dest)
 }
+
+var validVersion = regexp.MustCompile(`^\d*(\.\d*)*?$`)
 
 func version(s string) string {
 	s = filepath.Base(s)
@@ -375,9 +396,8 @@ func nearlyLexical(s []string) func(i, j int) bool {
 }
 
 // Loads a set of migrations from a given directory.
-func loadFrom(path string) ([]Migration, error) {
-	parentDir := filepath.Join(path, "*.migration")
-	files, err := filepath.Glob(parentDir)
+func loadFrom(mfs fs.FS, pattern string) ([]Migration, error) {
+	files, err := fs.Glob(mfs, pattern)
 	if err != nil {
 		return nil, err
 	}
@@ -390,7 +410,7 @@ func loadFrom(path string) ([]Migration, error) {
 	for _, f := range files {
 		fmt.Printf("file: %s\n", f)
 
-		items, err := parseFile(f)
+		items, err := parseFile(mfs, f)
 		if err != nil {
 			return nil, err
 		}
@@ -405,8 +425,8 @@ func loadFrom(path string) ([]Migration, error) {
 
 // Opens the path into a byte slice.
 // Returns the bytes, the file's checksum, and an error.
-func open(childPath string) ([]byte, string, error) {
-	bytes, err := os.ReadFile(childPath)
+func open(mfs fs.FS, childPath string) ([]byte, string, error) {
+	bytes, err := fs.ReadFile(mfs, childPath)
 	if err != nil {
 		return nil, "", err
 	}
@@ -415,8 +435,8 @@ func open(childPath string) ([]byte, string, error) {
 	return bytes, hex.EncodeToString(chk[:]), nil
 }
 
-func parseFile(path string) ([]Migration, error) {
-	b, checksum, err := open(path)
+func parseFile(mfs fs.FS, path string) ([]Migration, error) {
+	b, checksum, err := open(mfs, path)
 	if err != nil {
 		return nil, err
 	}

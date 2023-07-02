@@ -6,9 +6,12 @@ package arangomigo
 import (
 	"context"
 	"fmt"
+	"io/fs"
+	"log"
+	"os"
+
 	"github.com/pkg/errors"
 	"gopkg.in/yaml.v2"
-	"log"
 )
 
 func TriggerMigration(configAt string) {
@@ -17,9 +20,14 @@ func TriggerMigration(configAt string) {
 		log.Fatal(err)
 	}
 
+	for _, path := range config.MigrationsPath {
+		config.Loaders = append(config.Loaders, Dir(path))
+	}
+
 	if err := Migrate(context.Background(), *config); err != nil {
 		log.Fatal("Could not perform migration\n", err)
 	}
+
 	fmt.Println("Successfully completed migration")
 }
 
@@ -36,8 +44,8 @@ func Migrate(ctx context.Context, c Config) error {
 
 // Reads in a yaml file at the confLoc and returns the Config instance.
 func loadConf(confLoc string) (*Config, error) {
-	bytes, _, err := open(confLoc)
-	if e(err) {
+	bytes, err := os.ReadFile(confLoc)
+	if err != nil {
 		return nil, fmt.Errorf("couldn't locate configation at path '%s'", confLoc)
 	}
 
@@ -76,6 +84,8 @@ func (a *StringArray) UnmarshalYAML(unmarshal func(interface{}) error) error {
 	return nil
 }
 
+type Loader func() (fs.FS, string, error)
+
 // Config The content of a migration configuration.
 type Config struct {
 	Endpoints      []string
@@ -84,6 +94,7 @@ type Config struct {
 	MigrationsPath StringArray
 	Db             string
 	ExecutionMode  ExecutionMode
+	Loaders        []Loader `yaml:"-"`
 	// Extras allows the user to pass in replaced variables
 	Extras map[string]interface{}
 }

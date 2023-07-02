@@ -1,6 +1,7 @@
 package arangomigo
 
 import (
+	"os"
 	"sort"
 	"testing"
 
@@ -10,7 +11,7 @@ import (
 func TestLoadFromPath(t *testing.T) {
 	assert.Panics(
 		t,
-		func() { loadFrom("testdata/simple_migrations") },
+		func() { loadFrom(os.DirFS("testdata/simple_migrations"), "*.migration") },
 		"Should have paniced")
 
 }
